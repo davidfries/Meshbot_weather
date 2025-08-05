@@ -68,6 +68,7 @@ from modules.weather_alert_monitor import WeatherAlerts
 from modules.forecast_4day import Forecast4DayFetcher
 from modules.forecast_7day import Forecast7DayFetcher
 from modules.wind_24hour import Wind24HourFetcher
+from modules.reddit_rss import RedditRSSFetcher
 
 UNRECOGNIZED_MESSAGES = [
     "Oops! I didn't recognize that command. Type 'menu' to see a list of options.",
@@ -117,6 +118,7 @@ class MeshBot:
         self.forecast_4day = Forecast4DayFetcher(self.weather_manager)
         self.forecast_7day = Forecast7DayFetcher(self.weather_manager)
         self.wind_24hour = Wind24HourFetcher(self.weather_manager)
+        self.reddit_fetcher = RedditRSSFetcher("python")
 
     def find_serial_ports(self):
         import serial.tools.list_ports
@@ -442,6 +444,18 @@ class MeshBot:
                                         "No active alerts at this time.", message_type="Alert"
                                     )
                                     send_message_sequence(messages, message_type="Alert")
+                    elif "reddit" in message:
+                        self.transmission_count += 1
+                        time.sleep(first_message_delay)
+                        # Parse subreddit from message
+                        parts = message.split()
+                        subreddit = parts[1] if len(parts) > 1 else "python"
+                        reddit_fetcher = RedditRSSFetcher(subreddit)
+                        reddit_titles = reddit_fetcher.get_post_titles()
+                        reddit_message = f"Subreddit: r/{subreddit}\n" + "\n".join(reddit_titles)
+                        self.logger.info(f"Reddit message: {reddit_message}")
+                        messages = self.split_message(reddit_message, message_type="Reddit")
+                        send_message_sequence(messages, message_type="Reddit")
         except KeyError as e:
             node_name = self.interface.getMyNodeInfo().get('user', {}).get('longName', 'Unknown')
             self.logger.error(f'Attached node "{node_name}" was unable to decode incoming message, possible key mismatch in its node-database.')
